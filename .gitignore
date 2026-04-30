@@ -20,3 +20,7 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# Local docs not for remote
+PROJECT_PROPOSAL.md
+项目开发流程.md
