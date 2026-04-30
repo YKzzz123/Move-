@@ -97,9 +97,28 @@ app = FastAPI(title="Move! V2 Backend API")
 
 # 开发时 Vite 可能落在 5173、5174… 任意端口，用正则避免每次改白名单
 _DEV_ORIGIN_REGEX = r"http://(127\.0\.0\.1|localhost):\d+"
+_CORS_ORIGINS_ENV = "CORS_ALLOW_ORIGINS"
+_DEFAULT_PROD_ORIGINS = [
+    "https://3cdc9956.move-2h6.pages.dev",
+]
+
+
+def _parse_cors_origins() -> List[str]:
+    """
+    Parse CSV origins from env, e.g.:
+    CORS_ALLOW_ORIGINS=https://foo.pages.dev,https://app.example.com
+    """
+    raw = os.getenv(_CORS_ORIGINS_ENV, "")
+    env_origins = [item.strip() for item in raw.split(",") if item.strip()]
+    # Keep one safe default origin for production, and allow env overrides/additions.
+    return sorted(set(_DEFAULT_PROD_ORIGINS + env_origins))
+
+
+_cors_origins = _parse_cors_origins()
 
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=_cors_origins,
     allow_origin_regex=_DEV_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
