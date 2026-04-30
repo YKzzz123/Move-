@@ -1,0 +1,22 @@
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+moveV2/
+
+# Frontend
+node_modules/
+dist/
+.vite/
+
+# Logs and OS
+*.log
+.DS_Store
+Thumbs.db

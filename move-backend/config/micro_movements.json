@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "description": "与前端 move-frontend/src/config/movementRules.js 保持同一 id 与语义，供后端固化为参考或未来接口。",
+  "rules": [
+    {
+      "id": "eye_rest",
+      "name": "熨目凝神",
+      "description": "闭合双眼，隔绝外物，让眼周气血随呼吸自然流转。",
+      "keypoints": [145, 159, 374, 386]
+    },
+    {
+      "id": "hand_stretch",
+      "name": "托天理气",
+      "description": "双手交叉上托，拔伸脊柱，疏通三焦经络，引气血上行。",
+      "keypoints": [0, 15, 16]
+    },
+    {
+      "id": "shoulder_expansion",
+      "name": "展臂舒胸",
+      "description": "双臂平举外展，扩张胸腔，化解肩颈淤堵，纳天地清气。",
+      "keypoints": [11, 12, 15, 16]
+    }
+  ]
+}
