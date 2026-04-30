@@ -97,6 +97,8 @@ app = FastAPI(title="Move! V2 Backend API")
 
 # 开发时 Vite 可能落在 5173、5174… 任意端口，用正则避免每次改白名单
 _DEV_ORIGIN_REGEX = r"http://(127\.0\.0\.1|localhost):\d+"
+# 生产环境：放行 Cloudflare Pages 二级域名（含预览分支域名）和自定义追加域名
+_PAGES_ORIGIN_REGEX = r"https://([a-zA-Z0-9-]+\.)?move-2h6\.pages\.dev"
 _CORS_ORIGINS_ENV = "CORS_ALLOW_ORIGINS"
 _DEFAULT_PROD_ORIGINS = [
     "https://3cdc9956.move-2h6.pages.dev",
@@ -115,11 +117,12 @@ def _parse_cors_origins() -> List[str]:
 
 
 _cors_origins = _parse_cors_origins()
+_combined_origin_regex = f"{_DEV_ORIGIN_REGEX}|{_PAGES_ORIGIN_REGEX}"
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_origin_regex=_DEV_ORIGIN_REGEX,
+    allow_origin_regex=_combined_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
