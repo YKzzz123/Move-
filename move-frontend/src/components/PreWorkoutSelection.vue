@@ -155,15 +155,15 @@ const randomSegments = computed(() =>
 
 <template>
   <div
-    class="w-full max-w-lg rounded-[2.5rem] border border-stone-200/60 bg-[#FDFBF7] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.06)] sm:p-10"
+    class="w-full max-w-lg rounded-[2.5rem] border border-stone-200/60 bg-[#FDFBF7] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:border-stone-600/55 dark:bg-stone-900/94 dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] sm:p-10"
   >
     <h2
       id="pre-workout-title"
-      class="text-center text-sm font-normal tracking-[0.35em] text-stone-800"
+      class="text-center text-sm font-normal tracking-[0.35em] text-stone-800 dark:text-stone-100"
     >
       微运动 · 选单
     </h2>
-    <p class="mt-3 text-center text-[11px] leading-relaxed text-stone-500">
+    <p class="mt-3 text-center text-[11px] leading-relaxed text-stone-500 dark:text-stone-400">
       先择一式再入境：随机偏向近日少练者；自选可勾 1～3 项
     </p>
 
@@ -173,13 +173,13 @@ const randomSegments = computed(() =>
         :class="[
           'rounded-[2rem] border px-5 py-4 text-left transition',
           mode === 'random'
-            ? 'border-teal-300/60 bg-white shadow-[0_4px_20px_rgb(0,0,0,0.04)]'
-            : 'border-stone-200/60 bg-white/60 hover:border-stone-300/60 hover:bg-white/90',
+            ? 'border-teal-300/60 bg-white shadow-[0_4px_20px_rgb(0,0,0,0.04)] dark:border-teal-600/45 dark:bg-stone-800/90 dark:shadow-[0_4px_20px_rgb(0,0,0,0.35)]'
+            : 'border-stone-200/60 bg-white/60 hover:border-stone-300/60 hover:bg-white/90 dark:border-stone-600/50 dark:bg-stone-900/40 dark:hover:border-stone-500/55 dark:hover:bg-stone-800/70',
         ]"
         @click="setMode('random')"
       >
-        <span class="text-xs tracking-[0.28em] text-stone-800">随机抽选</span>
-        <span class="mt-2 block text-[10px] leading-relaxed text-stone-500">
+        <span class="text-xs tracking-[0.28em] text-stone-800 dark:text-stone-100">随机抽选</span>
+        <span class="mt-2 block text-[10px] leading-relaxed text-stone-500 dark:text-stone-400">
           加权：近 3 天练过的易降权
         </span>
       </button>
@@ -188,13 +188,13 @@ const randomSegments = computed(() =>
         :class="[
           'rounded-[2rem] border px-5 py-4 text-left transition',
           mode === 'custom'
-            ? 'border-teal-300/60 bg-white shadow-[0_4px_20px_rgb(0,0,0,0.04)]'
-            : 'border-stone-200/60 bg-white/60 hover:border-stone-300/60 hover:bg-white/90',
+            ? 'border-teal-300/60 bg-white shadow-[0_4px_20px_rgb(0,0,0,0.04)] dark:border-teal-600/45 dark:bg-stone-800/90 dark:shadow-[0_4px_20px_rgb(0,0,0,0.35)]'
+            : 'border-stone-200/60 bg-white/60 hover:border-stone-300/60 hover:bg-white/90 dark:border-stone-600/50 dark:bg-stone-900/40 dark:hover:border-stone-500/55 dark:hover:bg-stone-800/70',
         ]"
         @click="setMode('custom')"
       >
-        <span class="text-xs tracking-[0.28em] text-stone-800">自选动作</span>
-        <span class="mt-2 block text-[10px] leading-relaxed text-stone-500">
+        <span class="text-xs tracking-[0.28em] text-stone-800 dark:text-stone-100">自选动作</span>
+        <span class="mt-2 block text-[10px] leading-relaxed text-stone-500 dark:text-stone-400">
           从列表勾选 1～3 项
         </span>
       </button>
@@ -202,11 +202,11 @@ const randomSegments = computed(() =>
 
     <div
       v-if="mode === 'random'"
-      class="mt-8 space-y-4 rounded-[2rem] border border-stone-200/50 bg-white/50 p-5 shadow-[inset_0_1px_0_rgb(255,255,255,0.6)]"
+      class="mt-8 space-y-4 rounded-[2rem] border border-stone-200/50 bg-white/50 p-5 shadow-[inset_0_1px_0_rgb(255,255,255,0.6)] dark:border-stone-600/50 dark:bg-stone-800/55 dark:shadow-none"
     >
-      <p class="text-[11px] leading-relaxed text-stone-600">
-        近期做过的动作权重为 <span class="tabular-nums text-stone-800">1</span>，未做或超出窗口为
-        <span class="tabular-nums text-stone-800">3</span>，每次抽 1～3 个不重复项。
+      <p class="text-[11px] leading-relaxed text-stone-600 dark:text-stone-400">
+        近期做过的动作权重为 <span class="tabular-nums text-stone-800 dark:text-stone-200">1</span>，未做或超出窗口为
+        <span class="tabular-nums text-stone-800 dark:text-stone-200">3</span>，每次抽 1～3 个不重复项。
       </p>
       <div class="flex flex-wrap items-center gap-3">
         <button
@@ -221,7 +221,7 @@ const randomSegments = computed(() =>
           v-if="randomIds.length"
           type="button"
           :disabled="loadingRandom"
-          class="rounded-[2rem] border border-stone-200/60 bg-white/80 px-4 py-2.5 text-[11px] tracking-[0.15em] text-stone-600 transition hover:border-teal-200/60 hover:bg-teal-50/50"
+          class="rounded-[2rem] border border-stone-200/60 bg-white/80 px-4 py-2.5 text-[11px] tracking-[0.15em] text-stone-600 transition hover:border-teal-200/60 hover:bg-teal-50/50 dark:border-stone-600/50 dark:bg-stone-800/85 dark:text-stone-300 dark:hover:border-teal-600/40 dark:hover:bg-teal-950/30"
           @click="onGenerateRandom"
         >
           换一批
@@ -229,16 +229,16 @@ const randomSegments = computed(() =>
       </div>
       <p
         v-if="randomIds.length"
-        class="text-center text-sm leading-relaxed text-stone-800"
+        class="text-center text-sm leading-relaxed text-stone-800 dark:text-stone-100"
       >
         <template v-for="(seg, i) in randomSegments" :key="seg.id">
           <span v-if="i > 0" class="mx-0.5 text-stone-400">·</span>
-          <span class="text-teal-700/70">【{{ seg.part }}】</span><span>{{ seg.name }}</span>
+          <span class="text-teal-700/70 dark:text-teal-400/90">【{{ seg.part }}】</span><span>{{ seg.name }}</span>
         </template>
       </p>
       <p
         v-else
-        class="text-center text-[11px] text-stone-400"
+        class="text-center text-[11px] text-stone-400 dark:text-stone-500"
       >
         点击「生成组合」
       </p>
@@ -250,7 +250,7 @@ const randomSegments = computed(() =>
       role="group"
       aria-label="自选动作，最多三项"
     >
-      <p class="px-1 text-[10px] text-stone-500">
+      <p class="px-1 text-[10px] text-stone-500 dark:text-stone-400">
         已选 {{ customIds.length }} / 3
       </p>
 
@@ -261,18 +261,18 @@ const randomSegments = computed(() =>
           <div
             v-for="group in groupedByBodyPart"
             :key="group.key"
-            class="overflow-hidden rounded-[1.25rem] border border-stone-200/50 bg-white/40 shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
+            class="overflow-hidden rounded-[1.25rem] border border-stone-200/50 bg-white/40 shadow-[0_2px_12px_rgba(0,0,0,0.03)] dark:border-stone-600/45 dark:bg-stone-900/40 dark:shadow-[0_2px_12px_rgba(0,0,0,0.35)]"
           >
             <button
               type="button"
-              class="flex w-full items-center justify-between gap-3 rounded-[1.25rem] px-4 py-3.5 text-left transition hover:bg-stone-50"
+              class="flex w-full items-center justify-between gap-3 rounded-[1.25rem] px-4 py-3.5 text-left transition hover:bg-stone-50 dark:hover:bg-stone-800/65"
               :aria-expanded="isPartExpanded(group.key)"
               :aria-controls="`accordion-panel-${group.key}`"
               @click="togglePart(group.key)"
             >
-              <span class="text-xs tracking-[0.25em] text-stone-800">{{ group.key }}</span>
+              <span class="text-xs tracking-[0.25em] text-stone-800 dark:text-stone-100">{{ group.key }}</span>
               <svg
-                class="h-4 w-4 shrink-0 text-stone-500 transition-transform duration-300 ease-out"
+                class="h-4 w-4 shrink-0 text-stone-500 transition-transform duration-300 ease-out dark:text-stone-400"
                 :class="isPartExpanded(group.key) ? 'rotate-180' : ''"
                 viewBox="0 0 20 20"
                 fill="none"
@@ -293,7 +293,7 @@ const randomSegments = computed(() =>
               <div class="min-h-0">
                 <div
                   :id="`accordion-panel-${group.key}`"
-                  class="space-y-2 border-t border-stone-200/40 px-3 pb-3 pt-2"
+                  class="space-y-2 border-t border-stone-200/40 px-3 pb-3 pt-2 dark:border-stone-600/45"
                   role="region"
                 >
                   <label
@@ -302,20 +302,20 @@ const randomSegments = computed(() =>
                     :class="[
                       'flex cursor-pointer items-start gap-3 rounded-[1.5rem] border p-4 transition',
                       customIds.includes(r.id)
-                        ? 'border-teal-300/50 bg-white shadow-[0_4px_16px_rgb(0,0,0,0.04)]'
-                        : 'border-stone-200/50 bg-white/50 hover:border-stone-300/50',
+                        ? 'border-teal-300/50 bg-white shadow-[0_4px_16px_rgb(0,0,0,0.04)] dark:border-teal-600/45 dark:bg-stone-800/95 dark:shadow-[0_4px_16px_rgb(0,0,0,0.35)]'
+                        : 'border-stone-200/50 bg-white/50 hover:border-stone-300/50 dark:border-stone-600/45 dark:bg-stone-900/50 dark:hover:border-stone-500/50',
                     ]"
                   >
                     <input
                       type="checkbox"
-                      class="mt-0.5 h-4 w-4 shrink-0 rounded border-stone-300 text-teal-600 focus:ring-teal-500/30"
+                      class="mt-0.5 h-4 w-4 shrink-0 rounded border-stone-300 text-teal-600 focus:ring-teal-500/30 dark:border-stone-500 dark:bg-stone-800"
                       :checked="customIds.includes(r.id)"
                       :disabled="!customIds.includes(r.id) && customIds.length >= 3"
                       @change="toggleCustom(r.id)"
                     />
                     <span class="min-w-0">
-                      <span class="text-xs tracking-[0.2em] text-stone-800">{{ r.name }}</span>
-                      <span class="mt-0.5 block text-[10px] text-stone-500">
+                      <span class="text-xs tracking-[0.2em] text-stone-800 dark:text-stone-100">{{ r.name }}</span>
+                      <span class="mt-0.5 block text-[10px] text-stone-500 dark:text-stone-400">
                         {{ r.instructionSummary }}
                       </span>
                     </span>
@@ -331,7 +331,7 @@ const randomSegments = computed(() =>
     <div class="mt-10 flex flex-col gap-3 sm:flex-row sm:justify-end">
       <button
         type="button"
-        class="rounded-[2rem] border border-stone-200/60 bg-white/80 px-6 py-2.5 text-xs tracking-[0.2em] text-stone-600 transition hover:bg-stone-50"
+        class="rounded-[2rem] border border-stone-200/60 bg-white/80 px-6 py-2.5 text-xs tracking-[0.2em] text-stone-600 transition hover:bg-stone-50 dark:border-stone-600/50 dark:bg-stone-800/80 dark:text-stone-300 dark:hover:bg-stone-800"
         @click="emit('cancel')"
       >
         返回

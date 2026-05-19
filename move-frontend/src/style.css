@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* 启用 class="dark" 策略，与 Tailwind dark: 变体配套 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 html,
 body,
 #app {
@@ -14,4 +17,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #f7f5f0;
   color: #292524;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.dark body {
+  background-color: #0c1211;
+  color: #e7e5e4;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html:not(.dark) {
+  color-scheme: light;
 }

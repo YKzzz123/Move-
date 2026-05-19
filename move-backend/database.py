@@ -100,6 +100,47 @@ def ensure_user_auth_columns() -> None:
                 pass
 
 
+def ensure_diary_ai_summary_column() -> None:
+    """若 diaries 表缺少 ai_summary，则补齐（兼容早期库表）。"""
+    dialect = engine.dialect.name
+    with engine.begin() as conn:
+        if dialect == "mysql":
+            db_row = conn.execute(text("SELECT DATABASE()")).fetchone()
+            dbname = db_row[0] if db_row else None
+            if not dbname:
+                return
+
+            r = conn.execute(
+                text(
+                    """
+                    SELECT COUNT(*) FROM information_schema.COLUMNS
+                    WHERE TABLE_SCHEMA = :db
+                      AND TABLE_NAME = 'diaries'
+                      AND COLUMN_NAME = 'ai_summary'
+                    """
+                ),
+                {"db": dbname},
+            )
+            if (r.scalar() or 0) == 0:
+                conn.execute(text("ALTER TABLE diaries ADD COLUMN ai_summary VARCHAR(128) NULL"))
+            return
+
+        if dialect == "sqlite":
+            rows = conn.execute(text("PRAGMA table_info(diaries)")).fetchall()
+            names = {row[1] for row in rows}
+            if "ai_summary" not in names:
+                conn.execute(text("ALTER TABLE diaries ADD COLUMN ai_summary VARCHAR(128) NULL"))
+            return
+
+        try:
+            if dialect == "postgresql":
+                conn.execute(text("ALTER TABLE diaries ADD COLUMN IF NOT EXISTS ai_summary VARCHAR(128)"))
+            else:
+                conn.execute(text("ALTER TABLE diaries ADD COLUMN ai_summary VARCHAR(128) NULL"))
+        except Exception:
+            pass
+
+
 def generate_create_table_sql() -> List[str]:
     """Return MySQL CREATE TABLE statements from current ORM metadata."""
     from models import Base

@@ -15,6 +15,27 @@ const ZH = {
   Sagittarius: '射手',
 }
 
+/** 两字中文（`水瓶_idle.png` 等文件名）→ 英文资源键 */
+export const ZODIAC_ZH_SHORT_TO_EN_KEY = Object.fromEntries(
+  Object.entries(ZH).map(([en, zhShort]) => [zhShort, en.toLowerCase()]),
+)
+
+/**
+ * 与注册页「星座小像」相同的入参：从 userStore.zodiacCatType 拆出 zh / en。
+ * @param {string} raw 后端多为英文（如 Capricorn），或中文「天秤座」等
+ * @returns {{ zhStem: string, en: string }} zhStem 为两字（天秤），en 为首字母大写英文
+ */
+export function zodiacPortraitFieldsFromStoredType(raw) {
+  const t = typeof raw === 'string' ? raw.trim() : ''
+  if (!t) return { zhStem: '', en: '' }
+  if (/[\u4e00-\u9fff]/.test(t)) {
+    return { zhStem: t.replace(/座$/, ''), en: '' }
+  }
+  const cap = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()
+  const zhStem = ZH[cap] || ''
+  return { zhStem, en: cap }
+}
+
 function signEnFromParts(month, day) {
   const dayIndex = month * 100 + day
   if (dayIndex >= 1222 || dayIndex <= 119) return 'Capricorn'

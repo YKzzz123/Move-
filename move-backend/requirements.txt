@@ -4,6 +4,7 @@ sqlalchemy
 pymysql
 python-dotenv
 pydantic
-google-generativeai
 requests
 bcrypt
+psycopg[binary]
+pgvector

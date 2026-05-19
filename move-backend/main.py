@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import calendar
 import logging
 import os
 import json
-from datetime import date, datetime, timedelta
+from collections import Counter, defaultdict
+from datetime import date, datetime, time, timedelta, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import google.generativeai as genai
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, func, text
@@ -16,12 +18,50 @@ from sqlalchemy.orm import Session
 
 from auth.utils import hash_password, verify_password
 from auth.zodiac import zodiac_sign_from_birthday
-from database import create_tables, ensure_user_auth_columns, get_db
-from models import Diary, EnergyStation, MicroWorkoutRun, User
-from schemas import DiaryCreate, DiaryResponse, LoginRequest, RegisterResponse, UserRegister
-from services.gemini_service import generate_healing_quote
+from database import (
+    SessionLocal,
+    create_tables,
+    ensure_diary_ai_summary_column,
+    ensure_user_auth_columns,
+    get_db,
+)
+from models import Diary, EnergyStation, MicroWorkoutRun, SessionRecord, User
+from schemas import DiaryCreate, DiaryResponse, DiaryUpdateRequest, LoginRequest, RegisterResponse, UserRegister
+from services.energy_station_echo import router as energy_station_router
+from services.gemini_service import (
+    generate_diary_emotion_cover_sync,
+    generate_healing_quote,
+    generate_zen_report,
+    generate_text_sync,
+    is_doubao_configured,
+)
 
 log = logging.getLogger(__name__)
+
+
+def _refresh_diary_ai_cover_after_edit(diary_id: int, content_snapshot: str) -> None:
+    """
+    PATCH 正文后异步生成「情绪封面」并写库。豆包耗时长，若同步执行会拖慢保存按钮。
+    若用户在此之后又改过一次正文，则以最新正文为准，本次结果丢弃（避免盖掉新内容摘要）。
+    """
+    stripped = (content_snapshot or "").strip()
+    if not stripped:
+        return
+    cover = generate_diary_emotion_cover_sync(stripped)
+    db = SessionLocal()
+    try:
+        row = db.get(Diary, diary_id)
+        if row is None:
+            return
+        if (row.content or "").strip() != stripped:
+            return
+        row.ai_summary = cover
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        log.exception("Diary cover persist failed after edit, diary_id=%s", diary_id)
+    finally:
+        db.close()
 
 
 class QiUpdateRequest(BaseModel):
@@ -50,6 +90,12 @@ class RecentMovementsResponse(BaseModel):
     """近 N 天完成过的微运动 id，供前端加权随机降权；暂无持久化时返回空。"""
 
     movement_ids: List[str] = Field(default_factory=list)
+
+
+class WorkoutCalendarDatesResponse(BaseModel):
+    """某自然月内至少完成过一次微运动收纳的日期（YYYY-MM-DD）。"""
+
+    dates: List[str] = Field(default_factory=list)
 
 
 class MicroWorkoutFinishRequest(BaseModel):
@@ -83,6 +129,38 @@ class EnergyGenerateResponse(BaseModel):
     message: str
 
 
+class ZenSummaryResponse(BaseModel):
+    period: str
+    report_content: str
+
+
+class ZenBoardStatBlock(BaseModel):
+    focus_hours: float = 0.0
+    movement_count: int = 0
+    preferred_movement: str = "暂无记录"
+
+
+class ZenBoardHeatCell(BaseModel):
+    day: str
+    level: int = Field(ge=0, le=4, description="0–4 活跃度档位")
+
+
+class ZenBoardTimelineItem(BaseModel):
+    occurred_at: datetime
+    time_label: str
+    text: str
+
+
+class ZenBoardResponse(BaseModel):
+    """数字禅意看板：三档统计、近 30 日气脉、近 3 个自然日历史回音。"""
+
+    daily: ZenBoardStatBlock
+    rhythm: ZenBoardStatBlock
+    yearly: ZenBoardStatBlock
+    heatmap_30d: List[ZenBoardHeatCell] = Field(default_factory=list)
+    timeline_recent: List[ZenBoardTimelineItem] = Field(default_factory=list)
+
+
 class UserResponse(BaseModel):
     id: int
     username: Optional[str] = None
@@ -94,6 +172,7 @@ class UserResponse(BaseModel):
 
 
 app = FastAPI(title="Move! V2 Backend API")
+app.include_router(energy_station_router)
 
 # 开发时 Vite 可能落在 5173、5174… 任意端口，用正则避免每次改白名单
 _DEV_ORIGIN_REGEX = r"http://(127\.0\.0\.1|localhost):\d+"
@@ -129,6 +208,261 @@ app.add_middleware(
 )
 
 
+_MICRO_MOVEMENT_JSON = Path(__file__).resolve().parent / "config" / "micro_movements.json"
+_movement_label_map: Optional[Dict[str, str]] = None
+_ZEN_ALLOWED_PERIODS = frozenset({"daily", "weekly", "monthly", "yearly"})
+
+
+def _load_movement_id_labels() -> Dict[str, str]:
+    global _movement_label_map
+    if _movement_label_map is not None:
+        return _movement_label_map
+    _movement_label_map = {}
+    try:
+        with _MICRO_MOVEMENT_JSON.open(encoding="utf-8") as f:
+            payload = json.load(f)
+        for rule in payload.get("rules") or []:
+            rid = rule.get("id")
+            name = rule.get("name")
+            if rid and name:
+                _movement_label_map[str(rid)] = str(name)
+    except (OSError, json.JSONDecodeError, TypeError) as exc:
+        log.warning("movement labels load skipped: %s", exc)
+    return _movement_label_map
+
+
+def _zen_period_window_start(period: str) -> datetime:
+    now = datetime.now().astimezone()
+    days = {"daily": 1, "weekly": 7, "monthly": 30, "yearly": 365}[period]
+    return now - timedelta(days=days)
+
+
+def _local_calendar_date(dt: datetime, tz) -> date:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(tz).date()
+
+
+def _aggregate_zen_board_stats(db: Session, user_id: int, window_start: datetime) -> ZenBoardStatBlock:
+    session_rows = (
+        db.query(SessionRecord)
+        .filter(SessionRecord.user_id == user_id, SessionRecord.start_time >= window_start)
+        .all()
+    )
+    focus_seconds = 0.0
+    for rec in session_rows:
+        try:
+            delta_sec = (rec.end_time - rec.start_time).total_seconds()
+            if delta_sec > 0:
+                focus_seconds += delta_sec
+        except Exception:
+            continue
+    focus_hours = round(focus_seconds / 3600.0, 2)
+
+    workout_rows = (
+        db.query(MicroWorkoutRun)
+        .filter(
+            MicroWorkoutRun.user_id == user_id,
+            MicroWorkoutRun.created_at >= window_start,
+        )
+        .all()
+    )
+    movement_count = len(workout_rows)
+    freq: Counter[str] = Counter()
+    for row in workout_rows:
+        try:
+            parsed = json.loads(row.detail_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            continue
+        for item in parsed.get("items") or []:
+            mid = item.get("movementId") or item.get("movement_id")
+            if mid:
+                freq[str(mid)] += 1
+
+    labels = _load_movement_id_labels()
+    if freq:
+        top_id = freq.most_common(1)[0][0]
+        favorite_movement = labels.get(top_id, top_id)
+    else:
+        favorite_movement = "暂无记录"
+
+    return ZenBoardStatBlock(
+        focus_hours=focus_hours,
+        movement_count=movement_count,
+        preferred_movement=favorite_movement,
+    )
+
+
+def _zen_board_heatmap_cells(db: Session, user_id: int, tz) -> List[ZenBoardHeatCell]:
+    now = datetime.now(tz)
+    today = now.date()
+    start_date = today - timedelta(days=29)
+    window_start = datetime.combine(start_date, time.min).replace(tzinfo=tz)
+
+    micro_rows = (
+        db.query(MicroWorkoutRun)
+        .filter(
+            MicroWorkoutRun.user_id == user_id,
+            MicroWorkoutRun.created_at >= window_start,
+        )
+        .all()
+    )
+    micro_by_day: Counter[date] = Counter()
+    for row in micro_rows:
+        micro_by_day[_local_calendar_date(row.created_at, tz)] += 1
+
+    session_rows = (
+        db.query(SessionRecord)
+        .filter(
+            SessionRecord.user_id == user_id,
+            SessionRecord.start_time >= window_start,
+        )
+        .all()
+    )
+    focus_sec_by_day: Dict[date, float] = defaultdict(float)
+    for rec in session_rows:
+        try:
+            d = _local_calendar_date(rec.start_time, tz)
+            delta_sec = (rec.end_time - rec.start_time).total_seconds()
+            if delta_sec > 0:
+                focus_sec_by_day[d] += delta_sec
+        except Exception:
+            continue
+
+    out: List[ZenBoardHeatCell] = []
+    for i in range(30):
+        d = start_date + timedelta(days=i)
+        mc = micro_by_day.get(d, 0)
+        fs = focus_sec_by_day.get(d, 0.0)
+        pts = mc * 2 + min(12, int(fs // 600))
+        if pts <= 0:
+            level = 0
+        elif pts <= 2:
+            level = 1
+        elif pts <= 5:
+            level = 2
+        elif pts <= 10:
+            level = 3
+        else:
+            level = 4
+        out.append(ZenBoardHeatCell(day=d.isoformat(), level=level))
+    return out
+
+
+def _format_timeline_time_label(dt: datetime, now: datetime, tz) -> str:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    dt_l = dt.astimezone(tz)
+    now_l = now.astimezone(tz)
+    d_local = dt_l.date()
+    n_local = now_l.date()
+    t_str = dt_l.strftime("%H:%M")
+    if d_local == n_local:
+        return t_str
+    if d_local == n_local - timedelta(days=1):
+        return f"昨日 {t_str}"
+    if d_local == n_local - timedelta(days=2):
+        return f"前日 {t_str}"
+    return dt_l.strftime("%m月%d日 %H:%M")
+
+
+def _zen_board_timeline(db: Session, user_id: int, tz, limit: int = 80) -> List[ZenBoardTimelineItem]:
+    """近 3 个自然日（含当日）内的修习回音：专注会话、微运动收纳、日记。"""
+    now = datetime.now(tz)
+    today = now.date()
+    oldest = today - timedelta(days=2)
+    cutoff = datetime.combine(oldest, time.min).replace(tzinfo=tz)
+
+    labels = _load_movement_id_labels()
+    raw_items: List[tuple[datetime, str]] = []
+
+    sessions = (
+        db.query(SessionRecord)
+        .filter(
+            SessionRecord.user_id == user_id,
+            SessionRecord.end_time >= cutoff,
+        )
+        .all()
+    )
+    for rec in sessions:
+        try:
+            mins = int(round((rec.end_time - rec.start_time).total_seconds() / 60.0))
+            if mins < 1:
+                continue
+            et = rec.end_time
+            if et.tzinfo is None:
+                et = et.replace(tzinfo=timezone.utc)
+            raw_items.append((et, f"完成 {mins} 分钟专注"))
+        except Exception:
+            continue
+
+    runs = (
+        db.query(MicroWorkoutRun)
+        .filter(
+            MicroWorkoutRun.user_id == user_id,
+            MicroWorkoutRun.created_at >= cutoff,
+        )
+        .all()
+    )
+    for row in runs:
+        names: List[str] = []
+        try:
+            parsed = json.loads(row.detail_json or "{}")
+            for item in (parsed.get("items") or [])[:8]:
+                mid = item.get("movementId") or item.get("movement_id")
+                if mid:
+                    names.append(labels.get(str(mid), str(mid)))
+        except (json.JSONDecodeError, TypeError):
+            pass
+        text = "完成微运动收纳"
+        if names:
+            order_preserving: List[str] = []
+            seen: set[str] = set()
+            for n in names:
+                if n not in seen:
+                    seen.add(n)
+                    order_preserving.append(n)
+            if len(order_preserving) == 1:
+                text = f"完成微动作：{order_preserving[0]}"
+            else:
+                text = f"完成微动作：{order_preserving[0]} 等 {len(order_preserving)} 项"
+        ct = row.created_at
+        if ct.tzinfo is None:
+            ct = ct.replace(tzinfo=timezone.utc)
+        raw_items.append((ct, text))
+
+    diary_rows = (
+        db.query(Diary)
+        .filter(
+            Diary.user_id == user_id,
+            Diary.created_at >= cutoff,
+        )
+        .all()
+    )
+    for entry in diary_rows:
+        body = (entry.content or "").strip().replace("\n", " ").replace("\r", " ")
+        snippet = ((entry.ai_summary or "").strip() or body)[:48]
+        if not snippet:
+            continue
+        suffix = "…" if len(((entry.ai_summary or "").strip() or body)) > 48 else ""
+        dct = entry.created_at
+        if dct.tzinfo is None:
+            dct = dct.replace(tzinfo=timezone.utc)
+        raw_items.append((dct, f"身心日记：{snippet}{suffix}"))
+
+    raw_items.sort(key=lambda x: x[0], reverse=True)
+    out: List[ZenBoardTimelineItem] = []
+    for dt_val, line in raw_items[:limit]:
+        out.append(
+            ZenBoardTimelineItem(
+                occurred_at=dt_val,
+                time_label=_format_timeline_time_label(dt_val, now, tz),
+                text=line,
+            )
+        )
+    return out
+
+
 @app.get("/api/health")
 def health_check(db: Session = Depends(get_db)) -> dict:
     try:
@@ -147,6 +481,7 @@ def on_startup() -> None:
     # For early-stage development convenience; production should use migrations.
     create_tables()
     ensure_user_auth_columns()
+    ensure_diary_ai_summary_column()
 
 
 @app.get("/api/users/{user_id}", response_model=UserResponse)
@@ -307,6 +642,178 @@ def get_recent_micro_movements(
     return RecentMovementsResponse(movement_ids=sorted(ids))
 
 
+@app.get(
+    "/api/users/{user_id}/micro-workouts/calendar-dates",
+    response_model=WorkoutCalendarDatesResponse,
+)
+def get_micro_workout_calendar_dates(
+    user_id: int,
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),
+) -> WorkoutCalendarDatesResponse:
+    """按月返回有 micro_workout_runs 记录的日期，供首页打卡日历展示。"""
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    y = int(year)
+    m = int(month)
+    if m < 1 or m > 12 or y < 2000 or y > 2100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid year or month",
+        )
+    first = date(y, m, 1)
+    last_day = calendar.monthrange(y, m)[1]
+    last = date(y, m, last_day)
+    range_start = datetime.combine(first, time.min)
+    range_end_excl = datetime.combine(last + timedelta(days=1), time.min)
+
+    day_rows = (
+        db.query(func.date(MicroWorkoutRun.created_at))
+        .filter(
+            MicroWorkoutRun.user_id == user_id,
+            MicroWorkoutRun.created_at >= range_start,
+            MicroWorkoutRun.created_at < range_end_excl,
+        )
+        .distinct()
+        .all()
+    )
+    out: List[str] = []
+    for (d,) in day_rows:
+        if d is None:
+            continue
+        if isinstance(d, datetime):
+            out.append(d.date().isoformat())
+        elif isinstance(d, date):
+            out.append(d.isoformat())
+        else:
+            out.append(str(d)[:10])
+    out = sorted(set(out))
+    return WorkoutCalendarDatesResponse(dates=out)
+
+
+@app.get("/api/users/{user_id}/reports/zen-summary", response_model=ZenSummaryResponse)
+async def get_zen_summary_report(
+    user_id: int,
+    period: str = Query(
+        "weekly",
+        description="时间窗口：daily | weekly | monthly | yearly",
+    ),
+    db: Session = Depends(get_db),
+) -> ZenSummaryResponse:
+    """
+    数据降维摘要（sessions / micro_workout_runs / diaries）+ 豆包 LLM 生成禅意寄语。
+    """
+    p = (period or "weekly").strip().lower()
+    if p not in _ZEN_ALLOWED_PERIODS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid period; expected daily, weekly, monthly, or yearly",
+        )
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    window_start = _zen_period_window_start(p)
+
+    session_rows = (
+        db.query(SessionRecord)
+        .filter(SessionRecord.user_id == user_id, SessionRecord.start_time >= window_start)
+        .all()
+    )
+    focus_seconds = 0.0
+    for rec in session_rows:
+        try:
+            delta_sec = (rec.end_time - rec.start_time).total_seconds()
+            if delta_sec > 0:
+                focus_seconds += delta_sec
+        except Exception:
+            continue
+    focus_hours = round(focus_seconds / 3600.0, 2)
+
+    workout_rows = (
+        db.query(MicroWorkoutRun)
+        .filter(
+            MicroWorkoutRun.user_id == user_id,
+            MicroWorkoutRun.created_at >= window_start,
+        )
+        .all()
+    )
+    movement_count = len(workout_rows)
+    freq: Counter[str] = Counter()
+    for row in workout_rows:
+        try:
+            parsed = json.loads(row.detail_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            continue
+        for item in parsed.get("items") or []:
+            mid = item.get("movementId") or item.get("movement_id")
+            if mid:
+                freq[str(mid)] += 1
+
+    labels = _load_movement_id_labels()
+    if freq:
+        top_id = freq.most_common(1)[0][0]
+        favorite_movement = labels.get(top_id, top_id)
+    else:
+        favorite_movement = "暂无记录"
+
+    diary_rows = (
+        db.query(Diary)
+        .filter(Diary.user_id == user_id)
+        .order_by(desc(Diary.created_at))
+        .limit(3)
+        .all()
+    )
+    pieces: List[str] = []
+    for entry in diary_rows:
+        text = (entry.content or "").strip().replace("\n", " ").replace("\r", " ")
+        if text:
+            pieces.append(text[:50])
+    recent_diary_summary = " ".join(pieces) if pieces else "暂无日记摘录"
+
+    user_stats: Dict[str, Any] = {
+        "focus_hours": focus_hours,
+        "favorite_movement": favorite_movement,
+        "movement_count": movement_count,
+        "recent_diary_summary": recent_diary_summary[:200],
+    }
+
+    report_content = await generate_zen_report(user_stats, p)
+    return ZenSummaryResponse(period=p, report_content=report_content)
+
+
+@app.get("/api/users/{user_id}/dashboard/zen-board", response_model=ZenBoardResponse)
+def get_zen_board_dashboard(
+    user_id: int,
+    db: Session = Depends(get_db),
+) -> ZenBoardResponse:
+    """
+    数字禅意看板聚合：今日 / 近 30 日 / 近一年统计与热力图；历史回音仅限近 3 个自然日。
+    与前端 Tab「今日回顾 / 近期趋势 / 年度总结」对齐（趋势窗口与 zen-summary 的 monthly、yearly 一致）。
+    """
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    tz = datetime.now().astimezone().tzinfo
+    if tz is None:
+        tz = timezone.utc
+
+    daily = _aggregate_zen_board_stats(db, user_id, _zen_period_window_start("daily"))
+    rhythm = _aggregate_zen_board_stats(db, user_id, _zen_period_window_start("monthly"))
+    yearly = _aggregate_zen_board_stats(db, user_id, _zen_period_window_start("yearly"))
+
+    return ZenBoardResponse(
+        daily=daily,
+        rhythm=rhythm,
+        yearly=yearly,
+        heatmap_30d=_zen_board_heatmap_cells(db, user_id, tz),
+        timeline_recent=_zen_board_timeline(db, user_id, tz),
+    )
+
+
 @app.post("/api/users/{user_id}/micro-workouts/finish", response_model=MicroWorkoutFinishResponse)
 def finish_micro_workout(
     user_id: int,
@@ -358,11 +865,10 @@ def complete_workout(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if not api_key:
+    if not is_doubao_configured():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="GEMINI_API_KEY is not configured",
+            detail="DOUBAO_API_KEY and DOUBAO_ENDPOINT_ID (or DOUBAO_MODEL) must be configured",
         )
 
     prompt = (
@@ -374,23 +880,20 @@ def complete_workout(
     )
 
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        result = model.generate_content(prompt)
-        healing_quote = (result.text or "").strip()
+        healing_quote = generate_text_sync(prompt, timeout_sec=60).strip()
         if not healing_quote:
-            raise ValueError("Empty response from Gemini")
+            raise ValueError("Empty response from Doubao")
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to generate healing quote from Gemini",
+            detail="Failed to generate healing quote from Doubao",
         )
 
     try:
         item = EnergyStation(
             quote_text=healing_quote,
             is_favorited=False,
-            source_tag="gemini",
+            source_tag="doubao",
         )
         db.add(item)
         db.commit()
@@ -424,7 +927,7 @@ async def generate_energy_quote(
         item = EnergyStation(
             quote_text=quote_text,
             is_favorited=False,
-            source_tag="gemini-default" if is_default else "gemini",
+            source_tag="doubao-default" if is_default else "doubao",
         )
         db.add(item)
         db.commit()
@@ -447,13 +950,15 @@ async def generate_energy_quote(
 @app.post("/api/diaries/", response_model=DiaryResponse, status_code=status.HTTP_201_CREATED)
 def create_diary(
     payload: DiaryCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> DiaryResponse:
     user = db.get(User, payload.user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    entry = Diary(user_id=payload.user_id, content=payload.content.strip())
+    content_stripped = payload.content.strip()
+    entry = Diary(user_id=payload.user_id, content=content_stripped, ai_summary=None)
     try:
         db.add(entry)
         db.commit()
@@ -464,6 +969,7 @@ def create_diary(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create diary entry",
         )
+    background_tasks.add_task(_refresh_diary_ai_cover_after_edit, entry.id, content_stripped)
     return DiaryResponse.model_validate(entry)
 
 
@@ -483,3 +989,52 @@ def list_diaries(
         .all()
     )
     return [DiaryResponse.model_validate(r) for r in rows]
+
+
+@app.patch("/api/diaries/{diary_id}", response_model=DiaryResponse)
+def update_diary(
+    diary_id: int,
+    payload: DiaryUpdateRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> DiaryResponse:
+    row = db.get(Diary, diary_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diary not found")
+    if row.user_id != payload.user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    content_stripped = payload.content.strip()
+    row.content = content_stripped
+    try:
+        db.commit()
+        db.refresh(row)
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update diary",
+        )
+    background_tasks.add_task(_refresh_diary_ai_cover_after_edit, diary_id, content_stripped)
+    return DiaryResponse.model_validate(row)
+
+
+@app.delete("/api/diaries/{diary_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_diary(
+    diary_id: int,
+    user_id: int = Query(..., gt=0, description="Must match diary owner"),
+    db: Session = Depends(get_db),
+) -> None:
+    row = db.get(Diary, diary_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diary not found")
+    if row.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    try:
+        db.delete(row)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete diary",
+        )

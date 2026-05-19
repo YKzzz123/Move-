@@ -24,3 +24,11 @@ Thumbs.db
 # Local docs not for remote
 PROJECT_PROPOSAL.md
 项目开发流程.md
+项目实际实现.md
+drawio/
+
+# Cursor rules
+.cursorrules
+
+# reports
+reports/

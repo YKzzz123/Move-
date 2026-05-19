@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useUserStore } from '@/store/userStore'
 
 import Home from '@/views/Home.vue'
 import Library from '@/views/Library.vue'
@@ -22,6 +23,15 @@ const router = createRouter({
   scrollBehavior() {
     return { top: 0 }
   },
+})
+
+router.beforeEach((to) => {
+  if (to.name !== 'UserCenter') return true
+  const userStore = useUserStore()
+  if (!userStore.userId) {
+    return { name: 'Login', query: { redirect: to.fullPath } }
+  }
+  return true
 })
 
 export default router

@@ -13,7 +13,7 @@ const props = defineProps({
 const emit = defineEmits(['workoutComplete', 'exit'])
 
 const cameraRef = ref(null)
-const MAX_TARGET_SETS = 12
+const MAX_TARGET_SETS = 24
 
 /**
  * @typedef {{ movementId: string, currentSet: number, targetSets: number, skipped: boolean }} QueuedMover
@@ -193,55 +193,55 @@ function onEndSession() {
       class="flex flex-col gap-8 lg:flex-row lg:items-stretch lg:gap-8 lg:justify-center"
     >
       <aside
-        class="order-2 flex w-full max-w-md shrink-0 flex-col rounded-[2.5rem] border border-stone-200/60 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] lg:order-1 lg:w-80"
+        class="order-2 flex w-full max-w-md shrink-0 flex-col rounded-[2.5rem] border border-stone-200/60 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:border-stone-600/55 dark:bg-stone-900/80 dark:shadow-[0_8px_30px_rgb(0,0,0,0.45)] lg:order-1 lg:w-80"
       >
         <p
           v-if="currentRule"
-          class="text-[10px] tracking-[0.4em] text-stone-500"
+          class="text-[10px] tracking-[0.4em] text-stone-500 dark:text-stone-400"
         >
           当前
         </p>
         <h3
           v-if="currentRule"
-          class="mt-1 text-sm font-normal tracking-[0.25em] text-stone-800"
+          class="mt-1 text-sm font-normal tracking-[0.25em] text-stone-800 dark:text-stone-100"
         >
           {{ currentRule.name }}
         </h3>
         <p
           v-if="currentRule"
-          class="mt-3 text-[12px] leading-relaxed text-stone-600"
+          class="mt-3 text-[12px] leading-relaxed text-stone-600 dark:text-stone-400"
         >
           {{ currentRule.instruction }}
         </p>
 
         <div
           v-if="currentItem && currentRule"
-          class="mt-6 rounded-[1.5rem] border border-stone-200/50 bg-[#FDFBF7] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+          class="mt-6 rounded-[1.5rem] border border-stone-200/50 bg-[#FDFBF7] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-stone-600/45 dark:bg-stone-800/70 dark:shadow-none"
         >
-          <p class="text-center text-2xl font-extralight tabular-nums text-teal-800">
+          <p class="text-center text-2xl font-extralight tabular-nums text-teal-800 dark:text-teal-300">
             {{ progressLabel }}
           </p>
-          <p class="mt-1 text-center text-[10px] text-stone-500">
+          <p class="mt-1 text-center text-[10px] text-stone-500 dark:text-stone-400">
             {{ currentRule.instructionSummary }}
           </p>
           <div class="mt-4 flex items-center justify-center gap-2">
-            <span class="text-[10px] text-stone-500">本动作目标组</span>
+            <span class="text-[10px] text-stone-500 dark:text-stone-400">本动作目标组</span>
             <button
               type="button"
               :disabled="currentItem.targetSets <= 1 || currentItem.skipped"
-              class="h-8 w-8 rounded-2xl border border-stone-200/60 bg-white text-stone-600 transition enabled:hover:border-teal-200 enabled:hover:bg-teal-50/60 disabled:cursor-not-allowed disabled:opacity-40"
+              class="h-8 w-8 rounded-2xl border border-stone-200/60 bg-white text-stone-600 transition enabled:hover:border-teal-200 enabled:hover:bg-teal-50/60 disabled:cursor-not-allowed disabled:opacity-40 dark:border-stone-600/55 dark:bg-stone-900 dark:text-stone-300 dark:enabled:hover:border-teal-600/40 dark:enabled:hover:bg-teal-950/35"
               aria-label="减少目标组"
               @click="bumpTarget(-1)"
             >
               −
             </button>
             <span
-              class="min-w-[2.5rem] text-center text-sm tabular-nums text-stone-800"
+              class="min-w-[2.5rem] text-center text-sm tabular-nums text-stone-800 dark:text-stone-100"
             >{{ currentItem.targetSets }}</span>
             <button
               type="button"
               :disabled="currentItem.targetSets >= MAX_TARGET_SETS || currentItem.skipped"
-              class="h-8 w-8 rounded-2xl border border-stone-200/60 bg-white text-stone-600 transition enabled:hover:border-teal-200 enabled:hover:bg-teal-50/60 disabled:cursor-not-allowed disabled:opacity-40"
+              class="h-8 w-8 rounded-2xl border border-stone-200/60 bg-white text-stone-600 transition enabled:hover:border-teal-200 enabled:hover:bg-teal-50/60 disabled:cursor-not-allowed disabled:opacity-40 dark:border-stone-600/55 dark:bg-stone-900 dark:text-stone-300 dark:enabled:hover:border-teal-600/40 dark:enabled:hover:bg-teal-950/35"
               aria-label="增加目标组"
               @click="bumpTarget(1)"
             >
@@ -252,7 +252,7 @@ function onEndSession() {
 
         <ul
           v-if="queuePreview.length"
-          class="mt-6 space-y-2 border-t border-stone-200/40 pt-4 text-[10px] text-stone-500"
+          class="mt-6 space-y-2 border-t border-stone-200/40 pt-4 text-[10px] text-stone-500 dark:border-stone-600/45 dark:text-stone-400"
         >
           <li
             v-for="(row, i) in queuePreview"
@@ -261,8 +261,8 @@ function onEndSession() {
           >
             <span
               :class="{
-                'text-teal-800': row.mark === 'current',
-                'text-stone-400 line-through': row.mark === 'done',
+                'text-teal-800 dark:text-teal-300': row.mark === 'current',
+                'text-stone-400 line-through dark:text-stone-500': row.mark === 'done',
               }"
             >{{ i + 1 }}. {{ row.name }}</span>
             <span v-if="row.mark === 'current'" class="text-stone-400">进行</span>
@@ -275,7 +275,7 @@ function onEndSession() {
           <button
             type="button"
             :disabled="sessionFinished"
-            class="w-full rounded-[2rem] border border-dashed border-stone-200/80 bg-white/30 py-2.5 text-center text-[11px] tracking-[0.2em] text-stone-500 transition hover:border-stone-300/80 hover:bg-stone-50/80 disabled:opacity-40"
+            class="w-full rounded-[2rem] border border-dashed border-stone-200/80 bg-white/30 py-2.5 text-center text-[11px] tracking-[0.2em] text-stone-500 transition hover:border-stone-300/80 hover:bg-stone-50/80 disabled:opacity-40 dark:border-stone-600/60 dark:bg-stone-900/30 dark:text-stone-400 dark:hover:border-stone-500 dark:hover:bg-stone-800/70"
             @click="skipCurrent"
           >
             跳过当前动作
@@ -296,7 +296,7 @@ function onEndSession() {
     <div class="mt-8 flex justify-center">
       <button
         type="button"
-        class="rounded-[2rem] border border-stone-200/60 bg-teal-50 px-8 py-2.5 text-xs tracking-[0.25em] text-teal-800 transition hover:bg-teal-100"
+        class="rounded-[2rem] border border-stone-200/60 bg-teal-50 px-8 py-2.5 text-xs tracking-[0.25em] text-teal-800 transition hover:bg-teal-100 dark:border-stone-600/55 dark:bg-teal-950/45 dark:text-teal-100 dark:hover:bg-teal-900/40"
         @click="onEndSession"
       >
         结束运动
@@ -305,7 +305,7 @@ function onEndSession() {
   </div>
   <p
     v-else
-    class="py-8 text-center text-sm text-stone-500"
+    class="py-8 text-center text-sm text-stone-500 dark:text-stone-400"
   >
     无有效动作，请返回选单
   </p>

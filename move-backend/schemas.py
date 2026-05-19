@@ -16,7 +16,22 @@ class DiaryResponse(BaseModel):
     id: int
     user_id: int
     content: str
+    ai_summary: str | None = None
     created_at: datetime
+
+
+class DiaryUpdateRequest(BaseModel):
+    user_id: int = Field(..., gt=0)
+    content: str = Field(..., min_length=1, max_length=50_000)
+
+
+class PasswordChangeRequest(BaseModel):
+    old_password: str = Field(..., min_length=1, max_length=72)
+    new_password: str = Field(..., min_length=8, max_length=72)
+
+
+class PasswordChangeResponse(BaseModel):
+    message: str
 
 
 class UserRegister(BaseModel):

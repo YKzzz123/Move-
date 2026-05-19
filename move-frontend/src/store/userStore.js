@@ -35,6 +35,8 @@ function initialState() {
     zodiacCatType: '',
     qiScore: 0,
     currentCatState: CAT_STATE.IDLE,
+    /** 首页头像用 tired：专注放弃/结束后未运动/微运动零完成等；运动有完成组时清除 */
+    homeCatTiredAfterMicroWorkout: false,
     currentSession: {
       active: false,
       startTime: null,
@@ -86,6 +88,7 @@ export const useUserStore = defineStore('user', {
       this.username = ''
       this.zodiacCatType = ''
       this.qiScore = 0
+      this.homeCatTiredAfterMicroWorkout = false
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem(USER_STORAGE_KEY)
       }
@@ -108,6 +111,7 @@ export const useUserStore = defineStore('user', {
         this.zodiacCatType = data.zodiac_cat_type || ''
         this.qiScore = Number(data.qi_score ?? 0)
         this.currentCatState = CAT_STATE.IDLE
+        this.homeCatTiredAfterMicroWorkout = false
         this._persistToStorage()
         return data
       } catch (err) {
@@ -134,6 +138,7 @@ export const useUserStore = defineStore('user', {
         this.zodiacCatType = data.zodiac_cat_type || ''
         this.qiScore = Number(data.qi_score ?? 0)
         this.currentCatState = CAT_STATE.IDLE
+        this.homeCatTiredAfterMicroWorkout = false
         this._persistToStorage()
         return data
       } catch (err) {
@@ -158,6 +163,7 @@ export const useUserStore = defineStore('user', {
         this.zodiacCatType = data.zodiac_cat_type || ''
         this.qiScore = 0
         this.currentCatState = CAT_STATE.IDLE
+        this.homeCatTiredAfterMicroWorkout = false
         this._persistToStorage()
         return data
       } catch (err) {

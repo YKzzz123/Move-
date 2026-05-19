@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { movementRuleList } from '@/config/movementRules'
 import bodyDiagramUrl from '@/assets/body/body.svg?url'
 import bodyBackDiagramUrl from '@/assets/body/body-back.svg?url'
@@ -190,18 +191,18 @@ watch(
 
 <template>
   <div
-    class="min-h-[calc(100vh-4.5rem)] bg-[#FDFBF7] text-stone-800"
+    class="min-h-[calc(100vh-4.5rem)] bg-[#FDFBF7] text-stone-800 transition-colors duration-300 dark:bg-stone-950 dark:text-stone-100"
     style="font-family: var(--font-sans, ui-sans-serif)"
   >
     <div class="mx-auto max-w-6xl px-4 pb-12 pt-6 sm:px-6">
-      <header class="mb-6 border-b border-stone-200/70 pb-4">
-        <p class="text-sm font-medium uppercase tracking-[0.2em] text-stone-500">
+      <header class="mb-6 border-b border-stone-200/70 pb-4 dark:border-stone-600/60">
+        <p class="text-sm font-medium uppercase tracking-[0.2em] text-stone-500 dark:text-stone-400">
           Movement · Library
         </p>
-        <h1 class="mt-1 text-2xl font-light tracking-tight text-stone-800 sm:text-3xl">
+        <h1 class="mt-1 text-2xl font-light tracking-tight text-stone-800 dark:text-stone-100 sm:text-3xl">
           经络运动库
         </h1>
-        <p class="mt-2 max-w-xl text-sm leading-relaxed text-stone-500">
+        <p class="mt-2 max-w-xl text-sm leading-relaxed text-stone-500 dark:text-stone-400">
           右侧选择动作，左侧人机互动查看相关穴位；悬停或点击以高亮。
         </p>
       </header>
@@ -209,7 +210,7 @@ watch(
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
         <!-- 左 5：视口 + 运镜 Canvas（底图与穴位同层变换，避免错位） -->
         <section
-          class="relative overflow-hidden rounded-[2rem] border border-stone-200/60 bg-[#FDFBF7]/80 shadow-sm lg:col-span-5"
+          class="relative overflow-hidden rounded-[2rem] border border-stone-200/60 bg-[#FDFBF7]/80 shadow-sm dark:border-stone-600/50 dark:bg-stone-900/60 lg:col-span-5"
         >
           <div
             class="relative mx-auto h-[min(52vh,420px)] w-full min-h-[280px] max-w-full overflow-hidden lg:h-[min(58vh,480px)] lg:min-h-[360px]"
@@ -304,16 +305,18 @@ watch(
           <div
             v-for="group in groupedByBodyPart"
             :key="group.key"
-            class="overflow-hidden rounded-2xl border border-stone-200/70 bg-white/50"
+            class="overflow-hidden rounded-2xl border border-stone-200/70 bg-white/50 dark:border-stone-600/50 dark:bg-stone-900/45"
           >
             <button
               type="button"
-              class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50/90"
-              :class="activeBodyPart === group.key ? 'text-teal-600' : 'text-stone-800'"
+              class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50/90 dark:hover:bg-stone-800/60"
+              :class="
+                activeBodyPart === group.key ? 'text-teal-600 dark:text-teal-400' : 'text-stone-800 dark:text-stone-200'
+              "
               @click="toggleAccordion(group.key)"
             >
               <span class="text-sm font-medium">{{ group.key }}</span>
-              <span class="text-xs text-stone-500">{{ group.rules.length }} 式</span>
+              <span class="text-xs text-stone-500 dark:text-stone-400">{{ group.rules.length }} 式</span>
               <span
                 class="ml-auto shrink-0 text-stone-400 transition-transform duration-300"
                 :class="expandedBodyParts[group.key] ? 'rotate-180' : ''"
@@ -323,26 +326,26 @@ watch(
               </span>
             </button>
 
-            <div v-show="expandedBodyParts[group.key]" class="border-t border-stone-100/90">
+            <div v-show="expandedBodyParts[group.key]" class="border-t border-stone-100/90 dark:border-stone-700/70">
               <div
                 v-for="rule in group.rules"
                 :key="rule.id"
-                class="border-b border-stone-100/70 last:border-b-0"
+                class="border-b border-stone-100/70 last:border-b-0 dark:border-stone-700/65"
               >
                 <button
                   type="button"
-                  class="flex w-full flex-col gap-0.5 px-4 py-3 text-left transition-colors hover:bg-teal-50/50"
+                  class="flex w-full flex-col gap-0.5 px-4 py-3 text-left transition-colors hover:bg-teal-50/50 dark:hover:bg-teal-950/25"
                   :class="
                     highlightRuleId === rule.id
-                      ? 'bg-teal-50/80 ring-1 ring-inset ring-teal-200/80'
+                      ? 'bg-teal-50/80 ring-1 ring-inset ring-teal-200/80 dark:bg-teal-950/35 dark:ring-teal-700/50'
                       : ''
                   "
                   @mouseenter="onMovementEnter(rule)"
                   @mouseleave="onMovementLeave"
                   @click="onMovementClick(rule)"
                 >
-                  <span class="text-sm text-stone-800">{{ rule.name }}</span>
-                  <span class="text-xs text-stone-500">{{ rule.description }}</span>
+                  <span class="text-sm text-stone-800 dark:text-stone-100">{{ rule.name }}</span>
+                  <span class="text-xs text-stone-500 dark:text-stone-400">{{ rule.description }}</span>
                 </button>
 
                 <transition
@@ -355,33 +358,33 @@ watch(
                 >
                   <div
                     v-if="expandedActionId === rule.id"
-                    class="mx-3 mb-3 grid overflow-hidden rounded-xl border-t border-stone-100 bg-teal-50/30"
+                    class="mx-3 mb-3 grid overflow-hidden rounded-xl border-t border-stone-100 bg-teal-50/30 dark:border-stone-700/65 dark:bg-teal-950/20"
                   >
                     <div class="min-h-0 px-4 py-4">
                       <div class="flex flex-col">
                         <div class="mb-4">
-                          <span class="mb-1 block text-xs tracking-widest text-teal-700/70">
+                          <span class="mb-1 block text-xs tracking-widest text-teal-700/70 dark:text-teal-400/90">
                             「 动作要领 」
                           </span>
-                          <p class="font-serif text-sm leading-relaxed text-stone-600">
+                          <p class="font-serif text-sm leading-relaxed text-stone-600 dark:text-stone-400">
                             {{ rule.essentials }}
                           </p>
                         </div>
 
                         <div class="mb-4">
-                          <span class="mb-1 block text-xs tracking-widest text-teal-700/70">
+                          <span class="mb-1 block text-xs tracking-widest text-teal-700/70 dark:text-teal-400/90">
                             「 身体益处 」
                           </span>
-                          <p class="font-serif text-sm leading-relaxed text-stone-600">
+                          <p class="font-serif text-sm leading-relaxed text-stone-600 dark:text-stone-400">
                             {{ rule.physicalBenefits }}
                           </p>
                         </div>
 
                         <div>
-                          <span class="mb-1 block text-xs tracking-widest text-teal-700/70">
+                          <span class="mb-1 block text-xs tracking-widest text-teal-700/70 dark:text-teal-400/90">
                             「 中医脉络 」
                           </span>
-                          <p class="font-serif text-sm leading-relaxed text-stone-600">
+                          <p class="font-serif text-sm leading-relaxed text-stone-600 dark:text-stone-400">
                             {{ rule.tcmConnection }}
                           </p>
                         </div>

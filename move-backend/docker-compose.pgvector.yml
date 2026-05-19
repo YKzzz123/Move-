@@ -1,0 +1,25 @@
+# 本地开发：带 pgvector 的 PostgreSQL，与默认 ENERGY_PGVECTOR_URL 对齐。
+#
+# 启动（在 move-backend 目录）：
+#   docker compose -f docker-compose.pgvector.yml up -d
+# 或（推荐国内网络：脚本默认走 DaoCloud 加速，避免阿里云 registry-mirror 对 docker.io 返回 403）：
+#   powershell -ExecutionPolicy Bypass -File scripts/start_pgvector_docker.ps1
+#
+# 默认连接串（与代码默认一致）：
+#   postgresql+psycopg://postgres:postgres@localhost:5432/move_energy
+#
+# 镜像可覆盖（直连 Docker Hub 时）：
+#   set MOVE_PGVECTOR_IMAGE=pgvector/pgvector:pg16   （CMD）
+#   $env:MOVE_PGVECTOR_IMAGE="pgvector/pgvector:pg16"  （PowerShell）
+services:
+  pgvector:
+    # 国内常见：Docker Desktop 配置了阿里云 mirror 时，拉 docker.io/pgvector/pgvector 可能 403；
+    # DaoCloud 公开加速在 allowlist 中包含 docker.io/pgvector/pgvector。
+    image: ${MOVE_PGVECTOR_IMAGE:-m.daocloud.io/docker.io/pgvector/pgvector:pg16}
+    container_name: move-energy-pgvector
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: move_energy

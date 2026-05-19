@@ -1,9 +1,9 @@
 {
-  "yintang": { "name": "印堂", "x": 50.3, "y": 5.3, "labelX": 50, "labelY": 0.5 },
+  "yintang": { "name": "印堂", "x": 50.3, "y": 5.3, "labelX": 50, "labelY": 1.1 },
   "cuanzhu_left": { "name": "攒竹", "x": 46.6, "y": 5.2, "labelX": 39, "labelY": 2.2 },
   "cuanzhu_right": { "name": "攒竹", "x": 54, "y": 5.2, "labelX": 62, "labelY": 2.2 },
-  "jingming_left": { "name": "睛明", "x": 48.7, "y": 5.8, "labelX": 48, "labelY": 1 },
-  "jingming_right": { "name": "睛明", "x": 51.8, "y": 5.8, "labelX": 53, "labelY": 1 },
+  "jingming_left": { "name": "睛明", "x": 48.7, "y": 5.8, "labelX": 48, "labelY": 2.3 },
+  "jingming_right": { "name": "睛明", "x": 51.8, "y": 5.8, "labelX": 53, "labelY": 2.3 },
   "taiyang_left": { "name": "太阳", "x": 42, "y": 5.5, "labelX": 30, "labelY": 5 },
   "taiyang_right": { "name": "太阳", "x": 57.4, "y": 5.5, "labelX": 70, "labelY": 5 },
   "sibai_left": { "name": "四白", "x": 47, "y": 6.8, "labelX": 31, "labelY": 6.8 },

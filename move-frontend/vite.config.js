@@ -21,6 +21,9 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8001',
         changeOrigin: true,
+        // init-kb 可能极久：与 axios init 2h、运维脚本 2h 对齐
+        timeout: 7_200_000,
+        proxyTimeout: 7_200_000,
       },
     },
   },
