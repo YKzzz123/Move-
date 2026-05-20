@@ -71,10 +71,6 @@ It brings together **micro-workouts** and **Eastern-inspired encouragement**: co
 - `move-backend/` — API and services
 - `requirements.txt` — Python dependencies
 
-## Notes
-
-- Do not hard-code API keys in the frontend; inject secrets via platform environment variables in production.
-- Backend database access uses SQLAlchemy ORM throughout.
 
 ---
 
@@ -148,10 +144,45 @@ It brings together **micro-workouts** and **Eastern-inspired encouragement**: co
 ## 项目结构（简要）
 
 - `move-frontend/`：前端应用代码
-- `move-backend/`：后端 API 与服务逻辑
+- `move-backend/`：后端与服务逻辑
 - `requirements.txt`：Python 依赖清单
 
-## 说明
+## 复现/开发版说明
 
-- 前端严禁硬编码 API Key，生产环境请通过平台环境变量注入。
-- 后端数据库访问统一通过 SQLAlchemy ORM 实现。
+### 环境准备
+
+- **Node.js** 18+、**Python** 3.10+、本地 **MySQL**（默认库名 `move_v2`，连接串见 `move-backend/database.py`）。
+- 在**仓库根目录**创建 `.env`（勿提交），至少配置：
+  - `MOVEV2_DATABASE_URL` — MySQL 连接（示例：`mysql+pymysql://root:密码@localhost:3306/move_v2`）
+  - `DOUBAO_API_KEY`、`DOUBAO_ENDPOINT_ID`（或 `DOUBAO_MODEL`）— 疗愈文案 / 能量站 AI
+  - 可选：`ENERGY_PGVECTOR_URL` — 能量站向量库（本地可用 `move-backend/docker-compose.pgvector.yml` + `scripts/start_pgvector_docker.ps1`）
+- **勿将 API Key 写入前端**；`move-frontend/.env` 仅用于生产构建时的 `VITE_API_BASE_URL`，开发时留空即可（走 Vite 代理）。
+- 后端业务数据统一经 **SQLAlchemy ORM** 访问 MySQL。
+
+### 本地启动（开发联调）
+
+先启后端，再启前端。后端默认 `http://127.0.0.1:8001`，前端默认 `http://127.0.0.1:5173`（端口占用时会自动递增），`/api` 由 Vite 代理到后端。
+
+**后端启动步骤**：
+
+```powershell
+cd move-backend
+pip install -r requirements.txt
+python -m uvicorn main:app --host 127.0.0.1 --port 8001 --reload
+```
+
+若使用仓库内虚拟环境 `moveV2`，也可执行：`.\start_dev.ps1`（会自动释放 8001 端口并启动）。
+
+**前端启动步骤**：
+
+```powershell
+cd move-frontend
+npm install
+npm run dev
+```
+
+浏览器访问终端提示的本地地址（一般为 `http://127.0.0.1:5173`）。首次使用能量站向量能力时，可按需运行 `move-backend/scripts/init_energy_station_kb.ps1` 初始化知识库。
+
+## 部署
+
+当前线上：**前端**托管于 [Cloudflare Pages](https://move-2h6.pages.dev/)，**后端**为独立 HTTPS API 服务（Railway），浏览器在生产环境通过 `VITE_API_BASE_URL` 直连 API。

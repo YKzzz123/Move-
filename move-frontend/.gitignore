@@ -1,8 +1,29 @@
 node_modules
 dist
 .DS_Store
+Thumbs.db
+desktop.ini
 .vite
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 环境变量（含 Vite 本地覆盖）
 .env
 .env.*
 !.env.example
+.env.local
+.env.*.local
+
+# 编辑器与本地工具
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 测试与覆盖率
+coverage/
+.nyc_output/
