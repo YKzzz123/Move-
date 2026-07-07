@@ -191,10 +191,10 @@ watch(
 
 <template>
   <div
-    class="min-h-[calc(100vh-4.5rem)] bg-[#FDFBF7] text-stone-800 transition-colors duration-300 dark:bg-stone-950 dark:text-stone-100"
+    class="flex min-h-[calc(100vh-4.5rem)] flex-col bg-[#FDFBF7] text-stone-800 transition-colors duration-300 dark:bg-stone-950 dark:text-stone-100"
     style="font-family: var(--font-sans, ui-sans-serif)"
   >
-    <div class="mx-auto max-w-6xl px-4 pb-12 pt-6 sm:px-6">
+    <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-12 pt-6 sm:px-6 lg:min-h-0 lg:pb-6">
       <header class="mb-6 border-b border-stone-200/70 pb-4 dark:border-stone-600/60">
         <p class="text-sm font-medium uppercase tracking-[0.2em] text-stone-500 dark:text-stone-400">
           Movement · Library
@@ -207,11 +207,12 @@ watch(
         </p>
       </header>
 
-      <div class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
-        <!-- 左 5：视口 + 运镜 Canvas（底图与穴位同层变换，避免错位） -->
-        <section
-          class="relative overflow-hidden rounded-[2rem] border border-stone-200/60 bg-[#FDFBF7]/80 shadow-sm dark:border-stone-600/50 dark:bg-stone-900/60 lg:col-span-5"
-        >
+      <div class="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start lg:gap-8">
+        <!-- 左 5：大屏 sticky 固定，右侧列表区域内滚动时位置不变 -->
+        <section class="lg:sticky lg:top-6 lg:col-span-5 lg:self-start">
+          <div
+            class="relative w-full overflow-hidden rounded-[2rem] border border-stone-200/60 bg-[#FDFBF7]/80 shadow-sm dark:border-stone-600/50 dark:bg-stone-900/60"
+          >
           <div
             class="relative mx-auto h-[min(52vh,420px)] w-full min-h-[280px] max-w-full overflow-hidden lg:h-[min(58vh,480px)] lg:min-h-[360px]"
           >
@@ -298,10 +299,12 @@ watch(
               </div>
             </div>
           </div>
+          </div>
         </section>
 
-        <!-- 右 7：分组手风琴 -->
-        <section class="flex flex-col gap-1 lg:col-span-7">
+        <!-- 右 7：固定视高内独立滚动 -->
+        <section class="flex min-h-0 flex-col lg:col-span-7">
+          <div class="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden pr-1 lg:max-h-full">
           <div
             v-for="group in groupedByBodyPart"
             :key="group.key"
@@ -326,7 +329,13 @@ watch(
               </span>
             </button>
 
-            <div v-show="expandedBodyParts[group.key]" class="border-t border-stone-100/90 dark:border-stone-700/70">
+            <div
+              v-show="expandedBodyParts[group.key]"
+              class="border-t border-stone-100/90 dark:border-stone-700/70"
+            >
+              <div
+                class="library-group-scroll max-h-[min(48vh,22rem)] overflow-y-auto overscroll-contain pr-1"
+              >
               <div
                 v-for="rule in group.rules"
                 :key="rule.id"
@@ -358,45 +367,83 @@ watch(
                 >
                   <div
                     v-if="expandedActionId === rule.id"
-                    class="mx-3 mb-3 grid overflow-hidden rounded-xl border-t border-stone-100 bg-teal-50/30 dark:border-stone-700/65 dark:bg-teal-950/20"
+                    class="mx-3 mb-3 grid overflow-hidden rounded-xl border border-teal-200/60 bg-teal-50/30 dark:border-teal-700/45 dark:bg-teal-950/20"
                   >
                     <div class="min-h-0 px-4 py-4">
                       <div class="flex flex-col">
-                        <div class="mb-4">
-                          <span class="mb-1 block text-xs tracking-widest text-teal-700/70 dark:text-teal-400/90">
-                            「 动作要领 」
-                          </span>
-                          <p class="font-serif text-sm leading-relaxed text-stone-600 dark:text-stone-400">
-                            {{ rule.essentials }}
-                          </p>
-                        </div>
+                      <div class="mb-4">
+                        <span class="mb-1 block text-xs tracking-widest text-teal-700/70 dark:text-teal-400/90">
+                          「 动作要领 」
+                        </span>
+                        <p class="font-serif text-sm leading-relaxed text-stone-600 dark:text-stone-400">
+                          {{ rule.essentials }}
+                        </p>
+                      </div>
 
-                        <div class="mb-4">
-                          <span class="mb-1 block text-xs tracking-widest text-teal-700/70 dark:text-teal-400/90">
-                            「 身体益处 」
-                          </span>
-                          <p class="font-serif text-sm leading-relaxed text-stone-600 dark:text-stone-400">
-                            {{ rule.physicalBenefits }}
-                          </p>
-                        </div>
+                      <div class="mb-4">
+                        <span class="mb-1 block text-xs tracking-widest text-teal-700/70 dark:text-teal-400/90">
+                          「 身体益处 」
+                        </span>
+                        <p class="font-serif text-sm leading-relaxed text-stone-600 dark:text-stone-400">
+                          {{ rule.physicalBenefits }}
+                        </p>
+                      </div>
 
-                        <div>
-                          <span class="mb-1 block text-xs tracking-widest text-teal-700/70 dark:text-teal-400/90">
-                            「 中医脉络 」
-                          </span>
-                          <p class="font-serif text-sm leading-relaxed text-stone-600 dark:text-stone-400">
-                            {{ rule.tcmConnection }}
-                          </p>
-                        </div>
+                      <div>
+                        <span class="mb-1 block text-xs tracking-widest text-teal-700/70 dark:text-teal-400/90">
+                          「 中医脉络 」
+                        </span>
+                        <p class="font-serif text-sm leading-relaxed text-stone-600 dark:text-stone-400">
+                          {{ rule.tcmConnection }}
+                        </p>
+                      </div>
                       </div>
                     </div>
                   </div>
                 </transition>
               </div>
+              </div>
             </div>
+          </div>
           </div>
         </section>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.library-group-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #d6d3d1 transparent;
+}
+
+.library-group-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.library-group-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.library-group-scroll::-webkit-scrollbar-thumb {
+  background-color: #d6d3d1;
+  border-radius: 9999px;
+}
+
+.library-group-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #a8a29e;
+}
+
+:global(html.dark) .library-group-scroll {
+  scrollbar-color: #57534e transparent;
+}
+
+:global(html.dark) .library-group-scroll::-webkit-scrollbar-thumb {
+  background-color: #57534e;
+}
+
+:global(html.dark) .library-group-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #78716c;
+}
+</style>
